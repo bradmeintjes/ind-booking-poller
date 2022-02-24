@@ -111,7 +111,8 @@ def notify(available: List[DataPoint]):
     """
 
     print('sending', len(available))
-    # emailer.send(to, 'IND appointment availability', json.dumps(available), body)
+    emailer.send(to, 'IND appointment availability',
+                 json.dumps(available), body)
     emailer.send(sender, 'IND appointment availability',
                  json.dumps(available), body)
     for a in available:
