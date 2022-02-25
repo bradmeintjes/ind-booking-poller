@@ -1,7 +1,7 @@
-from datetime import datetime
-import getpass
 import json
+import sys
 import time
+from datetime import datetime
 from string import Template
 from types import FunctionType, LambdaType
 from typing import List
@@ -12,16 +12,16 @@ import schedule
 
 from emailer import Emailer
 
-
 # {"status": "OK", "data": [{"key":"6284e2f0bf3dcb816618b965b4ae74d0","date":"2022-04-22","startTime":"09:00","endTime":"09:10","parts":1}] }
+if len(sys.argv) != 4:
+    raise Exception("usage: python ind_poll.py <sender> <receiver> <password>")
 
+sender = sys.argv[1]
+pwd = sys.argv[3]
+to = sys.argv[2]
 
-sender = input('email:')
-pwd = getpass.getpass('password:')
-to = input('to:')
-emailer = Emailer('smtp.gmail.com', 465, sender, pwd)
-url_template = Template(
-    'https://oap.ind.nl/oap/api/desks/${code}/slots/?productKey=BIO&persons=1')
+emailer = Emailer("smtp.gmail.com", 465, sender, pwd)
+url_template = Template("https://oap.ind.nl/oap/api/desks/${code}/slots/?productKey=BIO&persons=1")
 
 notified_keys = list()
 
@@ -43,14 +43,14 @@ class DataPoint:
         self.site_name = site_name
 
     def parse(self, data):
-        self.key = data['key']
-        self.date = datetime.strptime(data['date'], '%Y-%m-%d')
-        self.start_time = data['startTime']
-        self.end_time = data['endTime']
-        self.parts = data['parts']
+        self.key = data["key"]
+        self.date = datetime.strptime(data["date"], "%Y-%m-%d")
+        self.start_time = data["startTime"]
+        self.end_time = data["endTime"]
+        self.parts = data["parts"]
 
     def __str__(self):
-        return f'DataPoint({self.site_name}) [ key={self.key} date={self.date.date()} start_time={self.start_time} end_time={self.end_time} parts={self.parts} ]'
+        return f"DataPoint({self.site_name}) [ key={self.key} date={self.date.date()} start_time={self.start_time} end_time={self.end_time} parts={self.parts} ]"
 
 
 def is_weekend(dp: DataPoint) -> Boolean:
@@ -59,37 +59,32 @@ def is_weekend(dp: DataPoint) -> Boolean:
 
 def poll() -> List[DataPoint]:
     sites = [
-        Site(name='Utrecht', url=url_template.substitute(code='UT')),
-        Site(name='Expatcenter Utrecht', url=url_template.substitute(
-            code='fa24ccf0acbc76a7793765937eaee440')),
-        Site(name='Den Haag', url=url_template.substitute(
-            code='DH'), filter=is_weekend),
-        Site(name='Amsterdam', url=url_template.substitute(
-            code='AM'), filter=is_weekend),
-        Site(name='Rotterdam', url=url_template.substitute(
-            code='RO'), filter=is_weekend),
+        Site(name="Utrecht", url=url_template.substitute(code="UT")),
+        Site(name="Expatcenter Utrecht", url=url_template.substitute(code="fa24ccf0acbc76a7793765937eaee440")),
+        Site(name="Den Haag", url=url_template.substitute(code="DH"), filter=is_weekend),
+        Site(name="Amsterdam", url=url_template.substitute(code="AM"), filter=is_weekend),
+        Site(name="Rotterdam", url=url_template.substitute(code="RO"), filter=is_weekend),
     ]
 
     available = {}
 
     for site in sites:
-        print('getting', site.name, site.url)
         resp = requests.get(site.url)
 
         available = list()
         if resp.status_code == 200:
             content = json.loads(resp.text[5:])
-            if content['status'] == 'OK':
-                data = content['data']
+            if content["status"] == "OK":
+                data = content["data"]
                 for value in data:
                     dp = DataPoint(site.name)
                     dp.parse(value)
                     if site.filter(dp) and dp.key not in notified_keys:
                         available.append(dp)
             else:
-                print('status bad', site.name, site.url, data['status'])
+                print("status bad", site.name, site.url, data["status"])
         else:
-            print('poll failed', site.name, site.url)
+            print("poll failed", site.name, site.url)
     return available
 
 
@@ -110,13 +105,11 @@ def notify(available: List[DataPoint]):
     </html>
     """
 
-    print('sending', len(available))
-    emailer.send(to, 'IND appointment availability',
-                 json.dumps(available), body)
-    emailer.send(sender, 'IND appointment availability',
-                 json.dumps(available), body)
+    print("sending", len(available))
+    emailer.send(to, "IND appointment availability", json.dumps(available), body)
+    emailer.send(sender, "IND appointment availability", json.dumps(available), body)
     for a in available:
-        notified_keys.append(a['key'])
+        notified_keys.append(a["key"])
     print(notified_keys)
 
 
@@ -126,7 +119,7 @@ def job():
         notify(available)
 
 
-schedule.every(10).seconds.do(job)
+schedule.every(60).seconds.do(job)
 
 while True:
     schedule.run_pending()
