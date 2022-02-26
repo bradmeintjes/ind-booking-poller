@@ -22,7 +22,6 @@ class Emailer:
             msg.attach(MIMEText(html, 'html'))
 
         with smtplib.SMTP_SSL(self.__smtp_server, self.__smtp_port) as server:
-            server.set_debuglevel(1),
             server.ehlo()
             server.login(self.__sender, self.__pwd)
             server.sendmail(self.__sender, to, msg.as_string())
